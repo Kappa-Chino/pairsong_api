@@ -1,0 +1,40 @@
+<IfModule mod_rewrite.c>
+    <IfModule mod_negotiation.c>
+        Options -MultiViews -Indexes
+    </IfModule>
+
+    RewriteEngine On
+
+    # Handle Authorization Header
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Handle X-XSRF-Token Header
+    RewriteCond %{HTTP:x-xsrf-token} .
+    RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
+
+    # event.jec.ac.jp のリバースプロキシ経由の場合、Hostがprivate IPに書き換わり
+    # X-Forwarded-Protoも付かないため、外部ホスト名を環境変数に退避しておく
+    RewriteCond %{HTTP:X-Forwarded-Host} (.+)
+    RewriteRule ^ - [E=FWD_HOST:%1]
+
+    # Redirect Trailing Slashes If Not A Folder...
+    # POST等はリダイレクトでGETに変換され、ボディが失われてしまうためGET/HEADのみ対象にする
+    # %N は「最後に評価したRewriteCond」のキャプチャを指すため、
+    # キャプチャを使うREQUEST_URIの条件は必ず最後に置く
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_METHOD} ^(GET|HEAD)$
+    RewriteCond %{ENV:FWD_HOST} .+
+    RewriteCond %{REQUEST_URI} (.+)/$
+    RewriteRule ^ https://%{ENV:FWD_HOST}%1 [L,R=301]
+
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_METHOD} ^(GET|HEAD)$
+    RewriteCond %{REQUEST_URI} (.+)/$
+    RewriteRule ^ %1 [L,R=301]
+
+    # Send Requests To Front Controller...
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [L]
+</IfModule>
